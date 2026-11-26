@@ -44,7 +44,7 @@ SSH_TTY="$(tty)" agy
 9. Start the headless daemon for Remote Control:
 
 ```bash
-agy remote-control start --name "proxmox-lxc-antigravity-remote-control"
+agy remote-control start --name "antigravity-remote-control"
 ```
 
 10. Do a check of the daemon status and instance name:

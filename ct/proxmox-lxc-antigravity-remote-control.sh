@@ -8,6 +8,7 @@ source "$_cs_boot" 2>/dev/null || source <(curl -fsSL "${COMMUNITY_SCRIPTS_CORE_
 # Source: https://antigravity.google/docs/remote-control
 
 APP="Proxmox-LXC-Antigravity-Remote-Control"
+var_hostname="${var_hostname:-antigravity-remote-control}"
 var_tags="${var_tags:-ai;dev-tools}"
 var_cpu="${var_cpu:-2}"
 var_ram="${var_ram:-2048}"
@@ -252,6 +253,6 @@ echo -e "${INFO}${YW}Container IP: ${BGN}${IP:-N/A}${CL}"
 echo -e "${INFO}${YW}Complete first-run sign-in inside the container:${CL}"
 echo -e "${INFO}${BGN}su --whitelist-environment=SSH_CONNECTION,SSH_CLIENT,SSH_TTY - antigravity${CL}"
 echo -e "${INFO}${BGN}SSH_TTY=\"\$(tty)\" agy${CL}  ${YW}(sign in, then stop with /exit)${CL}"
-echo -e "${INFO}${BGN}agy remote-control start --name \"${HN:-proxmox-lxc-antigravity-remote-control}\"${CL}"
+echo -e "${INFO}${BGN}agy remote-control start --name \"${HN:-antigravity-remote-control}\"${CL}"
 echo -e "${INFO}${YW}Access your instance from the Remote Control Dashboard:${CL}"
 echo -e "${GATEWAY}${BGN}https://antigravity.google.com${CL}"
