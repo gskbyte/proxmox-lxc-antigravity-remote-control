@@ -1,0 +1,59 @@
+{
+  "name": "Proxmox LXC Antigravity Remote Control",
+  "slug": "proxmox-lxc-antigravity-remote-control",
+  "categories": [
+    20
+  ],
+  "date_created": "2026-11-26",
+  "type": "ct",
+  "updateable": true,
+  "privileged": false,
+  "interface_port": null,
+  "documentation": "https://antigravity.google/docs/remote-control",
+  "website": "https://antigravity.google",
+  "repository": null,
+  "architectures": [
+    "amd64"
+  ],
+  "platforms": [
+    "pve"
+  ],
+  "logo": "https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/google-antigravity.webp",
+  "description": "Google Antigravity CLI configured for headless Remote Control. Runs the persistent antigravity-cli-daemon systemd user service inside an unprivileged LXC container so you can connect to and drive autonomous agent sessions from the Antigravity Remote Control web dashboard.",
+  "install_methods": [
+    {
+      "type": "default",
+      "script": "ct/proxmox-lxc-antigravity-remote-control.sh",
+      "config_path": "/home/antigravity/.gemini/antigravity-cli/settings.json",
+      "resources": {
+        "cpu": 2,
+        "ram": 2048,
+        "hdd": 16,
+        "os": "Debian",
+        "version": "13"
+      }
+    }
+  ],
+  "default_credentials": {
+    "username": null,
+    "password": null
+  },
+  "notes": [
+    {
+      "text": "Complete first-run sign-in as the antigravity user: run 'su --whitelist-environment=SSH_CONNECTION,SSH_CLIENT,SSH_TTY - antigravity', sign in with 'SSH_TTY=\"$(tty)\" agy', stop with '/exit', and run 'agy remote-control start --name \"<instance-name>\"'.",
+      "type": "info"
+    },
+    {
+      "text": "Access the container from https://antigravity.google.com using the same Google Account.",
+      "type": "info"
+    },
+    {
+      "text": "Do a check of daemon status with 'agy remote-control status' and read logs with 'journalctl --user -u antigravity-cli-daemon -n 50' as the antigravity user.",
+      "type": "info"
+    },
+    {
+      "text": "The install script writes terminal sandbox defaults to settings.json. The CT script can also add a Proxmox VE LAN-isolation firewall (ANTIGRAVITY_BLOCK_LAN=yes).",
+      "type": "info"
+    }
+  ]
+}
