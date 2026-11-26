@@ -20,7 +20,8 @@ $STD apt-get install -y \
   dbus-user-session \
   git \
   libpam-systemd \
-  openssh-client
+  openssh-client \
+  openssh-server
 msg_ok "Installed Dependencies"
 
 AGY_USER="antigravity"
@@ -28,10 +29,49 @@ AGY_HOME="/home/${AGY_USER}"
 
 msg_info "Creating ${AGY_USER} User"
 if ! id -u "$AGY_USER" &>/dev/null; then
-  useradd -m -s /bin/bash "$AGY_USER"
+  # Use '*' instead of locked '!' so OpenSSH allows public-key auth without a password
+  useradd -m -s /bin/bash -p '*' "$AGY_USER"
+else
+  AGY_SHADOW_HASH="$(getent shadow "$AGY_USER" 2>/dev/null | cut -d: -f2 || true)"
+  if [[ -z "$AGY_SHADOW_HASH" || "$AGY_SHADOW_HASH" == "!" || "$AGY_SHADOW_HASH" == "!!" ]]; then
+    usermod -p '*' "$AGY_USER"
+  fi
 fi
+chmod go-w "$AGY_HOME"
 AGY_UID="$(id -u "$AGY_USER")"
 msg_ok "Created ${AGY_USER} User"
+
+_sync_agy_authorized_keys() {
+  install -d -m 700 -o "$AGY_USER" -g "$AGY_USER" "${AGY_HOME}/.ssh"
+  if [[ ! -f "${AGY_HOME}/.ssh/authorized_keys" ]]; then
+    install -m 600 -o "$AGY_USER" -g "$AGY_USER" /dev/null "${AGY_HOME}/.ssh/authorized_keys"
+  else
+    chown "${AGY_USER}:${AGY_USER}" "${AGY_HOME}/.ssh/authorized_keys"
+    chmod 600 "${AGY_HOME}/.ssh/authorized_keys"
+  fi
+
+  _append_keys_from_text() {
+    local raw="$1" line
+    [[ -n "$raw" ]] || return 0
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      line="${line%$'\r'}"
+      [[ -z "${line//[[:space:]]/}" || "$line" =~ ^[[:space:]]*# ]] && continue
+      if ! grep -Fxq -- "$line" "${AGY_HOME}/.ssh/authorized_keys" 2>/dev/null; then
+        printf '%s\n' "$line" >>"${AGY_HOME}/.ssh/authorized_keys"
+      fi
+    done <<<"$raw"
+  }
+
+  _append_keys_from_text "${ANTIGRAVITY_SSH_AUTHORIZED_KEY:-}"
+  _append_keys_from_text "${SSH_AUTHORIZED_KEY:-}"
+  _append_keys_from_text "${var_ssh_authorized_key:-}"
+  if [[ -r /root/.ssh/authorized_keys ]]; then
+    _append_keys_from_text "$(cat /root/.ssh/authorized_keys)"
+  fi
+
+  chown "${AGY_USER}:${AGY_USER}" "${AGY_HOME}/.ssh/authorized_keys"
+  chmod 600 "${AGY_HOME}/.ssh/authorized_keys"
+}
 
 msg_info "Configuring User Environment"
 cat <<'EOF' >/etc/profile.d/proxmox-lxc-antigravity-remote-control.sh
@@ -61,17 +101,37 @@ container=lxc
 EOF
 chown "${AGY_USER}:${AGY_USER}" "${AGY_HOME}/.config/environment.d/10-antigravity.conf"
 chmod 644 "${AGY_HOME}/.config/environment.d/10-antigravity.conf"
-
-if [[ -n "${SSH_AUTHORIZED_KEY:-}" ]]; then
-  if [[ ! -f /etc/ssh/sshd_config ]]; then
-    $STD apt-get install -y openssh-server
-  fi
-  systemctl enable -q --now ssh 2>/dev/null || systemctl enable -q --now sshd 2>/dev/null || true
-  install -d -m 700 -o "$AGY_USER" -g "$AGY_USER" "${AGY_HOME}/.ssh"
-  install -m 600 -o "$AGY_USER" -g "$AGY_USER" /dev/null "${AGY_HOME}/.ssh/authorized_keys"
-  printf '%s\n' "${SSH_AUTHORIZED_KEY}" >"${AGY_HOME}/.ssh/authorized_keys"
-fi
 msg_ok "Configured User Environment"
+
+msg_info "Configuring SSH Access for ${AGY_USER}"
+install -d -m 755 /etc/ssh/sshd_config.d
+cat <<'EOF' >/etc/ssh/sshd_config.d/50-antigravity.conf
+# Managed by proxmox-lxc-antigravity-remote-control
+PubkeyAuthentication yes
+AllowTcpForwarding yes
+UsePAM yes
+EOF
+chmod 644 /etc/ssh/sshd_config.d/50-antigravity.conf
+
+if ! compgen -G "/etc/ssh/ssh_host_*_key" >/dev/null; then
+  $STD ssh-keygen -A
+fi
+if ! $STD sshd -t; then
+  msg_error "Invalid SSH daemon configuration"
+  exit 1
+fi
+
+if systemctl cat ssh.service &>/dev/null; then
+  systemctl disable --now ssh.socket &>/dev/null || true
+  $STD systemctl enable --now ssh.service
+  $STD systemctl reload-or-restart ssh.service
+elif systemctl cat sshd.service &>/dev/null; then
+  systemctl disable --now sshd.socket &>/dev/null || true
+  $STD systemctl enable --now sshd.service
+  $STD systemctl reload-or-restart sshd.service
+fi
+_sync_agy_authorized_keys
+msg_ok "Configured SSH Access for ${AGY_USER}"
 
 msg_info "Enabling Systemd User Lingering"
 systemctl start dbus.socket &>/dev/null || true
@@ -150,4 +210,6 @@ msg_ok "Configured Antigravity CLI Sandbox Settings"
 
 motd_ssh
 customize
+# Re-sync authorized_keys in case customize() populated /root/.ssh/authorized_keys
+_sync_agy_authorized_keys
 cleanup_lxc

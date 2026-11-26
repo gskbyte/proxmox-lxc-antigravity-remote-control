@@ -40,11 +40,11 @@
   },
   "notes": [
     {
-      "text": "Complete first-run sign-in as the antigravity user: run 'su --whitelist-environment=SSH_CONNECTION,SSH_CLIENT,SSH_TTY - antigravity', sign in with 'SSH_TTY=\"$(tty)\" agy', stop with '/exit', and run 'agy remote-control start --name \"<instance-name>\"'.",
+      "text": "Connect via SSH as the antigravity user ('ssh antigravity@<container-ip>'), sign in with 'agy', stop with '/exit', and run 'agy remote-control start --name \"<instance-name>\"'.",
       "type": "info"
     },
     {
-      "text": "Access the container from https://antigravity.google.com using the same Google Account.",
+      "text": "Access the container from https://antigravity.google.com using the same Google Account, or connect directly over SSH from the Antigravity App.",
       "type": "info"
     },
     {
@@ -52,7 +52,7 @@
       "type": "info"
     },
     {
-      "text": "The install script writes terminal sandbox defaults to settings.json. The CT script can also add a Proxmox VE LAN-isolation firewall (ANTIGRAVITY_BLOCK_LAN=yes).",
+      "text": "The install script configures OpenSSH for the antigravity user (including AllowTcpForwarding) and writes terminal sandbox defaults to settings.json. The CT script keeps inbound SSH (TCP/22) allowed when Proxmox firewall options or LAN isolation (ANTIGRAVITY_BLOCK_LAN=yes) are enabled.",
       "type": "info"
     }
   ]
